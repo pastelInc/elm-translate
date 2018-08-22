@@ -1,4 +1,4 @@
-module Translate exposing (Translations, get, getBrowserLang, load, setDefaultLang, use)
+module Translate exposing (Msg, Translations, getCurrentLang, init, loadTranslations, translate, update)
 
 import Dict exposing (Dict)
 import Http exposing (Request)
@@ -8,94 +8,14 @@ import Regex exposing (HowMany(All), Regex, escape, regex, replace)
 
 type Translations
     = Translations
-        { currentLang : Maybe Lang
+        { currentLang : String
+        , doneFirstFetch : Bool
         , translations : Dict String String
         }
 
 
-type Lang
-    = Ja
-    | En
-
-
 type Msg
-    = Loaded (Result Http.Error Translations)
-
-
-update : Msg -> Translations -> Translations
-update msg tr =
-    case msg of
-        Loaded res ->
-            setResult res tr
-
-
-setResult : Result Http.Error Translations -> Translations
-setResult res tr =
-    case res of
-        Ok tr_ ->
-            merge tr_ tr
-
-
-loadingTranslations : String -> ( Translations, Cmd Msg )
-loadingTranslations lang =
-    let
-        url =
-            [ "/assets/i18n/" -- prefix
-            , lang
-            , ".json" -- suffix
-            ]
-                |> String.join ""
-    in
-    ( defaultTranslations lang, fetchTranslations Loaded url )
-
-
-getLnFromCode : String -> Maybe Lang
-getLnFromCode code =
-    case code of
-        "en" ->
-            Just En
-
-        "ja" ->
-            Just Ja
-
-        _ ->
-            Noting
-
-
-defaultTranslations : String -> Translations
-defaultTranslations lang =
-    Translations
-        { currentLang = getLnFromCode lang
-        , translations = Dict.empty
-        }
-
-
-get : String -> List ( String, String ) -> Translations -> String
-get key interpolateParams translation =
-    "translated text"
-
-
-setDefaultLang : String -> Translations -> Translations
-setDefaultLang lang translation =
-    case translation of
-        Translations s ->
-            Translations { s | defaultLang = Just Japanese }
-
-
-getBrowserLang : String
-getBrowserLang =
-    "ja"
-
-
-use : String -> Translations -> Translations
-use lang translation =
-    case translation of
-        Translations s ->
-            Translations { s | currentLang = Just Japanese }
-
-
-
--- INNER FUNCTION
+    = Loaded (Result Http.Error (Dict String String))
 
 
 type Tree
@@ -103,34 +23,83 @@ type Tree
     | Leaf String
 
 
+update : Msg -> Translations -> Translations
+update msg translations =
+    case msg of
+        Loaded res ->
+            setTranslations res translations
 
--- Loader
+
+setTranslations : Result Http.Error (Dict String String) -> Translations -> Translations
+setTranslations res (Translations model) =
+    case res of
+        Ok translations ->
+            Translations
+                { model | translations = translations, doneFirstFetch = True }
+
+        Err _ ->
+            Translations
+                { model | doneFirstFetch = True }
 
 
-fetchTranslations : (Result Http.Error Translations -> msg) -> String -> Cmd msg
+loadTranslations : String -> Cmd Msg
+loadTranslations url =
+    fetchTranslations Loaded url
+
+
+init : String -> Translations
+init lang =
+    Translations
+        { currentLang = lang
+        , doneFirstFetch = False
+        , translations = Dict.empty
+        }
+
+
+translate : String -> List ( String, String ) -> Translations -> String
+translate key interpolateParams ((Translations model) as translations) =
+    if not model.doneFirstFetch then
+        ""
+    else if Dict.isEmpty model.translations then
+        ""
+            |> Debug.log "WARINIG: Please load translations at first. Click here to read more."
+    else
+        Dict.get key model.translations
+            |> Maybe.withDefault key
+
+
+getCurrentLang : Translations -> String
+getCurrentLang (Translations { currentLang }) =
+    currentLang
+
+
+
+-- INNER FUNCTION
+
+
+fetchTranslations : (Result Http.Error (Dict String String) -> msg) -> String -> Cmd msg
 fetchTranslations msg url =
     Http.send msg (request url)
 
 
-request : String -> Request Translations
+request : String -> Request (Dict String String)
 request url =
     Http.get url decode
 
 
-decode : Decoder Translations
+decode : Decoder (Dict String String)
 decode =
     Decode.map mapTreeToDict treeDecoder
 
 
-mapTreeToDict : Tree -> Translations
+mapTreeToDict : Tree -> Dict String String
 mapTreeToDict tree =
     case tree of
         Branch dict ->
             foldTree Dict.empty dict ""
-                |> Translations
 
         _ ->
-            loaded
+            Dict.empty
 
 
 treeDecoder : Decoder Tree
@@ -143,7 +112,7 @@ treeDecoder =
 
 
 foldTree : Dict String String -> Dict String Tree -> String -> Dict String String
-foldTree initialValue dict namespace =
+foldTree accumulator dict namespace =
     Dict.foldl
         (\key val acc ->
             let
@@ -160,5 +129,5 @@ foldTree initialValue dict namespace =
                 Branch dict ->
                     foldTree acc dict (newNamespace key)
         )
-        initialValue
+        accumulator
         dict

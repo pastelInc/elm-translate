@@ -1,0 +1,6 @@
+{
+    "Home" : {
+        "helloworld" : "Hello world {{name}}",
+        "nowloading" : "Now Loading..."
+    }
+}
