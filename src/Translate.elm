@@ -1,4 +1,4 @@
-module Translate exposing (Msg, Translations, getCurrentLang, init, loadTranslations, translate, update)
+module Translate exposing (Msg, Translations, getCurrentLang, init, loadTranslations, tr, update)
 
 import Dict exposing (Dict)
 import Http exposing (Request)
@@ -10,12 +10,12 @@ type Translations
     = Translations
         { currentLang : String
         , doneFirstFetch : Bool
-        , translations : Dict String String
+        , translation : Translation
         }
 
 
 type Msg
-    = Loaded (Result Http.Error (Dict String String))
+    = Loaded (Result Http.Error Translation)
 
 
 type Tree
@@ -23,23 +23,35 @@ type Tree
     | Leaf String
 
 
+type Delims
+    = Curly
+
+
+type alias Translation =
+    Dict String String
+
+
+type alias InterpolateParams =
+    List ( String, String )
+
+
 update : Msg -> Translations -> Translations
 update msg translations =
     case msg of
         Loaded res ->
-            setTranslations res translations
+            setTranslation res translations
 
 
-setTranslations : Result Http.Error (Dict String String) -> Translations -> Translations
-setTranslations res (Translations model) =
+setTranslation : Result Http.Error Translation -> Translations -> Translations
+setTranslation res (Translations properties) =
     case res of
-        Ok translations ->
+        Ok translation ->
             Translations
-                { model | translations = translations, doneFirstFetch = True }
+                { properties | translation = translation, doneFirstFetch = True }
 
         Err _ ->
             Translations
-                { model | doneFirstFetch = True }
+                { properties | doneFirstFetch = True }
 
 
 loadTranslations : String -> Cmd Msg
@@ -52,19 +64,24 @@ init lang =
     Translations
         { currentLang = lang
         , doneFirstFetch = False
-        , translations = Dict.empty
+        , translation = Dict.empty
         }
 
 
-translate : String -> List ( String, String ) -> Translations -> String
-translate key interpolateParams ((Translations model) as translations) =
-    if not model.doneFirstFetch then
+tr : String -> List ( String, String ) -> Translations -> String
+tr key interpolateParams ((Translations { doneFirstFetch, translation }) as translations) =
+    if not doneFirstFetch then
         ""
-    else if Dict.isEmpty model.translations then
+    else if Dict.isEmpty translation then
         ""
             |> Debug.log "WARINIG: Please load translations at first. Click here to read more."
     else
-        Dict.get key model.translations
+        Dict.get key translation
+            |> Maybe.map
+                (replace All
+                    (placeholderRegex Curly)
+                    (replaceMatch interpolateParams)
+                )
             |> Maybe.withDefault key
 
 
@@ -77,17 +94,17 @@ getCurrentLang (Translations { currentLang }) =
 -- INNER FUNCTION
 
 
-fetchTranslations : (Result Http.Error (Dict String String) -> msg) -> String -> Cmd msg
+fetchTranslations : (Result Http.Error Translation -> msg) -> String -> Cmd msg
 fetchTranslations msg url =
     Http.send msg (request url)
 
 
-request : String -> Request (Dict String String)
+request : String -> Request Translation
 request url =
     Http.get url decode
 
 
-decode : Decoder (Dict String String)
+decode : Decoder Translation
 decode =
     Decode.map mapTreeToDict treeDecoder
 
@@ -131,3 +148,34 @@ foldTree accumulator dict namespace =
         )
         accumulator
         dict
+
+
+delimsToTuple : Delims -> ( String, String )
+delimsToTuple delims =
+    case delims of
+        Curly ->
+            ( "{{", "}}" )
+
+
+placeholderRegex : Delims -> Regex
+placeholderRegex delims =
+    let
+        ( startDelim, endDelim ) =
+            delimsToTuple delims
+    in
+    regex (escape startDelim ++ "(.*?)" ++ escape endDelim)
+
+
+replaceMatch : InterpolateParams -> Regex.Match -> String
+replaceMatch interpolateParams { match, submatches } =
+    case submatches of
+        maybeName :: _ ->
+            maybeName
+                |> Maybe.andThen
+                    (\name ->
+                        Dict.fromList interpolateParams |> Dict.get name
+                    )
+                |> Maybe.withDefault match
+
+        [] ->
+            match

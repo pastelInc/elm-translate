@@ -8705,6 +8705,45 @@ var _elm_lang$http$Http$StringPart = F2(
 	});
 var _elm_lang$http$Http$stringPart = _elm_lang$http$Http$StringPart;
 
+var _user$project$Translate$replaceMatch = F2(
+	function (interpolateParams, _p0) {
+		var _p1 = _p0;
+		var _p3 = _p1.match;
+		var _p2 = _p1.submatches;
+		if (_p2.ctor === '::') {
+			return A2(
+				_elm_lang$core$Maybe$withDefault,
+				_p3,
+				A2(
+					_elm_lang$core$Maybe$andThen,
+					function (name) {
+						return A2(
+							_elm_lang$core$Dict$get,
+							name,
+							_elm_lang$core$Dict$fromList(interpolateParams));
+					},
+					_p2._0));
+		} else {
+			return _p3;
+		}
+	});
+var _user$project$Translate$delimsToTuple = function (delims) {
+	var _p4 = delims;
+	return {ctor: '_Tuple2', _0: '{{', _1: '}}'};
+};
+var _user$project$Translate$placeholderRegex = function (delims) {
+	var _p5 = _user$project$Translate$delimsToTuple(delims);
+	var startDelim = _p5._0;
+	var endDelim = _p5._1;
+	return _elm_lang$core$Regex$regex(
+		A2(
+			_elm_lang$core$Basics_ops['++'],
+			_elm_lang$core$Regex$escape(startDelim),
+			A2(
+				_elm_lang$core$Basics_ops['++'],
+				'(.*?)',
+				_elm_lang$core$Regex$escape(endDelim))));
+};
 var _user$project$Translate$foldTree = F3(
 	function (accumulator, dict, namespace) {
 		return A3(
@@ -8717,18 +8756,18 @@ var _user$project$Translate$foldTree = F3(
 							namespace,
 							A2(_elm_lang$core$Basics_ops['++'], '.', key));
 					};
-					var _p0 = val;
-					if (_p0.ctor === 'Leaf') {
+					var _p6 = val;
+					if (_p6.ctor === 'Leaf') {
 						return A3(
 							_elm_lang$core$Dict$insert,
 							newNamespace(key),
-							_p0._0,
+							_p6._0,
 							acc);
 					} else {
 						return A3(
 							_user$project$Translate$foldTree,
 							acc,
-							_p0._0,
+							_p6._0,
 							newNamespace(key));
 					}
 				}),
@@ -8736,54 +8775,45 @@ var _user$project$Translate$foldTree = F3(
 			dict);
 	});
 var _user$project$Translate$mapTreeToDict = function (tree) {
-	var _p1 = tree;
-	if (_p1.ctor === 'Branch') {
-		return A3(_user$project$Translate$foldTree, _elm_lang$core$Dict$empty, _p1._0, '');
+	var _p7 = tree;
+	if (_p7.ctor === 'Branch') {
+		return A3(_user$project$Translate$foldTree, _elm_lang$core$Dict$empty, _p7._0, '');
 	} else {
 		return _elm_lang$core$Dict$empty;
 	}
 };
-var _user$project$Translate$getCurrentLang = function (_p2) {
-	var _p3 = _p2;
-	return _p3._0.currentLang;
+var _user$project$Translate$getCurrentLang = function (_p8) {
+	var _p9 = _p8;
+	return _p9._0.currentLang;
 };
-var _user$project$Translate$translate = F3(
-	function (key, interpolateParams, _p4) {
-		var _p5 = _p4;
-		var _p6 = _p5._0;
-		return (!_p6.doneFirstFetch) ? '' : (_elm_lang$core$Dict$isEmpty(_p6.translations) ? A2(_elm_lang$core$Debug$log, 'WARINIG: Please load translations at first. Click here to read more.', '') : A2(
-			_elm_lang$core$Maybe$withDefault,
-			key,
-			A2(_elm_lang$core$Dict$get, key, _p6.translations)));
-	});
 var _user$project$Translate$Translations = function (a) {
 	return {ctor: 'Translations', _0: a};
 };
-var _user$project$Translate$setTranslations = F2(
-	function (res, _p7) {
-		var _p8 = _p7;
-		var _p10 = _p8._0;
-		var _p9 = res;
-		if (_p9.ctor === 'Ok') {
+var _user$project$Translate$setTranslation = F2(
+	function (res, _p10) {
+		var _p11 = _p10;
+		var _p13 = _p11._0;
+		var _p12 = res;
+		if (_p12.ctor === 'Ok') {
 			return _user$project$Translate$Translations(
 				_elm_lang$core$Native_Utils.update(
-					_p10,
-					{translations: _p9._0, doneFirstFetch: true}));
+					_p13,
+					{translation: _p12._0, doneFirstFetch: true}));
 		} else {
 			return _user$project$Translate$Translations(
 				_elm_lang$core$Native_Utils.update(
-					_p10,
+					_p13,
 					{doneFirstFetch: true}));
 		}
 	});
 var _user$project$Translate$update = F2(
 	function (msg, translations) {
-		var _p11 = msg;
-		return A2(_user$project$Translate$setTranslations, _p11._0, translations);
+		var _p14 = msg;
+		return A2(_user$project$Translate$setTranslation, _p14._0, translations);
 	});
 var _user$project$Translate$init = function (lang) {
 	return _user$project$Translate$Translations(
-		{currentLang: lang, doneFirstFetch: false, translations: _elm_lang$core$Dict$empty});
+		{currentLang: lang, doneFirstFetch: false, translation: _elm_lang$core$Dict$empty});
 };
 var _user$project$Translate$Loaded = function (a) {
 	return {ctor: 'Loaded', _0: a};
@@ -8801,7 +8831,7 @@ var _user$project$Translate$treeDecoder = _elm_lang$core$Json_Decode$oneOf(
 		_1: {
 			ctor: '::',
 			_0: _elm_lang$core$Json_Decode$lazy(
-				function (_p12) {
+				function (_p15) {
 					return A2(
 						_elm_lang$core$Json_Decode$map,
 						_user$project$Translate$Branch,
@@ -8824,6 +8854,23 @@ var _user$project$Translate$fetchTranslations = F2(
 var _user$project$Translate$loadTranslations = function (url) {
 	return A2(_user$project$Translate$fetchTranslations, _user$project$Translate$Loaded, url);
 };
+var _user$project$Translate$Curly = {ctor: 'Curly'};
+var _user$project$Translate$tr = F3(
+	function (key, interpolateParams, _p16) {
+		var _p17 = _p16;
+		var _p18 = _p17._0.translation;
+		return (!_p17._0.doneFirstFetch) ? '' : (_elm_lang$core$Dict$isEmpty(_p18) ? A2(_elm_lang$core$Debug$log, 'WARINIG: Please load translations at first. Click here to read more.', '') : A2(
+			_elm_lang$core$Maybe$withDefault,
+			key,
+			A2(
+				_elm_lang$core$Maybe$map,
+				A3(
+					_elm_lang$core$Regex$replace,
+					_elm_lang$core$Regex$All,
+					_user$project$Translate$placeholderRegex(_user$project$Translate$Curly),
+					_user$project$Translate$replaceMatch(interpolateParams)),
+				A2(_elm_lang$core$Dict$get, key, _p18))));
+	});
 
 var _user$project$Main$view = function (model) {
 	var _p0 = model;
@@ -8832,7 +8879,7 @@ var _user$project$Main$view = function (model) {
 		var ln = _user$project$Translate$getCurrentLang(_p1);
 		return _elm_lang$html$Html$text(
 			A3(
-				_user$project$Translate$translate,
+				_user$project$Translate$tr,
 				'Home.nowloading',
 				{ctor: '[]'},
 				_p1));
@@ -8841,7 +8888,7 @@ var _user$project$Main$view = function (model) {
 		var ln = _user$project$Translate$getCurrentLang(_p2);
 		return _elm_lang$html$Html$text(
 			A3(
-				_user$project$Translate$translate,
+				_user$project$Translate$tr,
 				'Home.helloworld',
 				{
 					ctor: '::',

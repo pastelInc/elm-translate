@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Html exposing (Html, text)
 import Json.Decode as Decode exposing (Value)
-import Translate exposing (Translations, getCurrentLang, init, loadTranslations, translate)
+import Translate exposing (Translations, tr)
 
 
 type Model
@@ -73,7 +73,7 @@ view model =
                     translations
                         |> Translate.getCurrentLang
             in
-            translate "Home.nowloading" [] translations
+            tr "Home.nowloading" [] translations
                 |> text
 
         Loaded translations ->
@@ -82,7 +82,7 @@ view model =
                     translations
                         |> Translate.getCurrentLang
             in
-            translate "Home.helloworld" [ ( "name", "Chihaya" ) ] translations
+            tr "Home.helloworld" [ ( "name", "Chihaya" ) ] translations
                 |> text
 
 
